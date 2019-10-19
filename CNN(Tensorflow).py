@@ -203,9 +203,24 @@ layer_conv2
 
 layer_flat, num_features = flatten_layer(layer_conv2)
 layer_flat
-num_features
+
 
 layer_fc1 = new_fc_layer(input=layer_flat,
                          num_inputs=num_features,
                          num_outputs=fc_size,
                          use_relu=True)
+
+layer_fc2 = new_fc_layer(input=layer_fc1,
+                         num_inputs=fc_size,
+                         num_outputs=num_classes,
+                         use_relu=False)
+y_pred = tf.nn.softmax(layer_fc2)
+y_pred_cls = tf.argmax(y_pred, axis=1)
+
+cross_entropy = tf.nn.softmax_cross_entropy_with_logits(logits=layer_fc2,
+                                                        labels=y_true)
+cost = tf.reduce_mean(cross_entropy)
+optimizer = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(cost)
+correct_prediction = tf.equal(y_pred_cls, y_true_cls)
+accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
