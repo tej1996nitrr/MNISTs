@@ -16,6 +16,7 @@ def getClass(c):
         if j==1.0:
             return i
 
+
 def plot_images(images,cls_true,cls_pred=None):
     assert len(images) == len(cls_true)==9
     fig,axes  = plt.subplots(3,3)
@@ -51,7 +52,89 @@ optimizer = tf.train.GradientDescentOptimizer(learning_rate=0.5).minimize(cost)
 correct_prediction = tf.equal(y_pred_cls, y_true_cls)
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
 
-
-
 session = tf.Session()
+session.run(tf.global_variables_initializer())
+batch_size = 100
+def optimize(num_iterations):
+    for i in range(num_iterations):
+        batch_x, batch_y = mnist.train.next_batch(batch_size)
+        feed_dict_train = {x: batch_x,
+                           y_true: batch_y}
+        session.run(optimizer, feed_dict=feed_dict_train)
 
+feed_dict_test = {x: mnist.test.images,
+                  y_true: mnist.test.labels,
+                  y_true_cls: np.argmax(mnist.test.labels, axis=1)}
+
+
+def print_accuracy():
+    acc = session.run(accuracy, feed_dict=feed_dict_test)
+    print("Accuracy on test-set: {0:.1%}".format(acc))
+
+def print_confusion_matrix():
+    cls_true =np.argmax(mnist.test.labels, axis=1)
+    cls_pred = session.run(y_pred_cls, feed_dict=feed_dict_test)
+    cm = confusion_matrix(y_true=cls_true,
+                          y_pred=cls_pred)
+    print(cm)
+    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.tight_layout()
+    plt.colorbar()
+    tick_marks = np.arange(num_classes)
+    plt.xticks(tick_marks, range(num_classes))
+    plt.yticks(tick_marks, range(num_classes))
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+
+    plt.show()
+
+def plot_example_errors():
+    correct,cls_pred=session.run([correct_prediction,y_pred_cls],feed_dict=feed_dict_test)
+    incorrect =(correct==False)
+    images = mnist.test.images[incorrect]
+    cls_pred = cls_pred[incorrect]
+    cls_true = np.argmax(mnist.test.labels[incorrect], axis=1)
+    plot_images(images=images[0:9],cls_true=cls_true[0:9],cls_pred=cls_pred[0:9])
+
+def plot_weights():
+    w =session.run(weights)
+    w_max = np.max(w)
+    w_min = np.min(w)
+    fig,axes =plt.subplots(3,4)
+    fig.subplots_adjust(hspace=0.3, wspace=0.3)
+    for i, ax in enumerate(axes.flat):
+
+        if i < 10:
+            image = w[:, i].reshape(img_shape)
+            ax.set_xlabel("Weights: {0}".format(i))
+            ax.imshow(image, vmin=w_min, vmax=w_max, cmap='seismic')
+
+        ax.set_xticks([])
+        ax.set_yticks([])
+
+    plt.show()
+
+
+
+print_accuracy()
+#Accuracy on test-set: 9.8%
+plot_example_errors()
+
+optimize(num_iterations=1)
+print_accuracy()
+#Accuracy on test-set: 30.5%
+plot_example_errors()
+plot_weights()
+
+optimize(num_iterations=9)
+print_accuracy()
+#Accuracy on test-set: 69.1%
+plot_example_errors()
+plot_weights()
+
+optimize(num_iterations=990)
+print_accuracy()
+#Accuracy on test-set: 91.5%
+plot_example_errors()
+plot_weights()
+print_confusion_matrix()
