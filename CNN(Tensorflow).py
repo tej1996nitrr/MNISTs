@@ -20,7 +20,7 @@ fc_size = 128             # Number of neurons in fully-connected layer.
 
 from tensorflow.examples.tutorials.mnist import input_data
 mnist =input_data.read_data_sets("MNIST_data/",one_hot=True)
-mnist.train.images.shape
+mnist.train.images.shape[0]
 mnist.test.images[0].size
 
 # The number of pixels in each dimension of an image.
@@ -223,4 +223,160 @@ cost = tf.reduce_mean(cross_entropy)
 optimizer = tf.train.AdamOptimizer(learning_rate=1e-4).minimize(cost)
 correct_prediction = tf.equal(y_pred_cls, y_true_cls)
 accuracy = tf.reduce_mean(tf.cast(correct_prediction, tf.float32))
+
+
+
+session = tf.Session()
+session.run(tf.global_variables_initializer())
+train_batch_size = 64
+total_iterations = 0
+def optimize(num_iterations):
+    global total_iterations
+    start_time =time.time()
+    for i in range(total_iterations,total_iterations+num_iterations):
+        batch_x, batch_y = mnist.train.next_batch(train_batch_size)
+        feed_dict_train = {x: batch_x,
+                           y_true: batch_y}
+        session.run(optimizer, feed_dict=feed_dict_train)
+        if i % 100 == 0:
+
+            acc = session.run(accuracy, feed_dict=feed_dict_train)
+            msg = "Optimization Iteration: {0:>6}, Training Accuracy: {1:>6.1%}"
+            print(msg.format(i + 1, acc))
+    total_iterations += num_iterations
+    end_time = time.time()
+    time_dif = end_time - start_time
+    print("Time usage: " + str(timedelta(seconds=int(round(time_dif)))))
+
+def plot_example_errors(cls_pred,correct):
+# cls_pred is an array of the predicted class-number for
+# all images in the test-set.
+
+# correct is a boolean array whether the predicted class
+# is equal to the true class for each image in the test-set.
+    incorrect = (correct == False)
+    images = mnist.test.images[incorrect]
+    cls_pred = cls_pred[incorrect]
+    cls_true = np.argmax(mnist.test.labels[incorrect], axis=1)
+    plot_images(images=images[0:9],
+                cls_true=cls_true[0:9],
+                cls_pred=cls_pred[0:9])
+
+
+def plot_confusion_matrix(cls_pred):
+    # This is called from print_test_accuracy() below.
+
+    # cls_pred is an array of the predicted class-number for
+    # all images in the test-set.
+
+    # Get the true classifications for the test-set.
+    cls_true = np.argmax(mnist.test.labels, axis=1)
+
+    # Get the confusion matrix using sklearn.
+    cm = confusion_matrix(y_true=cls_true,
+                          y_pred=cls_pred)
+
+    # Print the confusion matrix as text.
+    print(cm)
+
+    # Plot the confusion matrix as an image.
+    plt.matshow(cm)
+
+    # Make various adjustments to the plot.
+    plt.colorbar()
+    tick_marks = np.arange(num_classes)
+    plt.xticks(tick_marks, range(num_classes))
+    plt.yticks(tick_marks, range(num_classes))
+    plt.xlabel('Predicted')
+    plt.ylabel('True')
+
+    # Ensure the plot is shown correctly with multiple plots
+    # in a single Notebook cell.
+    plt.show()
+
+test_batch_size = 256
+
+def print_test_accuracy(show_example_errors=False,
+                        show_confusion_matrix=False):
+
+    # Number of images in the test-set.
+    num_test = mnist.test.images.shape[0]
+
+    # Allocate an array for the predicted classes which
+    # will be calculated in batches and filled into this array.
+    cls_pred = np.zeros(shape=num_test, dtype=np.int)
+
+    # Now calculate the predicted classes for the batches.
+    # We will just iterate through all the batches.
+    # There might be a more clever and Pythonic way of doing this.
+
+    # The starting index for the next batch is denoted i.
+    i = 0
+
+    while i < num_test:
+        # The ending index for the next batch is denoted j.
+        j = min(i + test_batch_size, num_test)
+
+        # Get the images from the test-set between index i and j.
+
+        images = mnist.test.images[i:j,:]
+
+        # Get the associated labels.
+        labels = mnist.test.labels[i:j,:]
+        # Create a feed-dict with these images and labels.
+        feed_dict = {x: images,
+                     y_true: labels}
+
+        # Calculate the predicted class using TensorFlow.
+        cls_pred[i:j] = session.run(y_pred_cls, feed_dict=feed_dict)
+
+        # Set the start-index for the next batch to the
+        # end-index of the current batch.
+        i = j
+
+    # Convenience variable for the true class-numbers of the test-set.
+
+    cls_true = np.argmax(mnist.test.labels,axis=1)
+
+    # Create a boolean array whether each image is correctly classified.
+    correct = (cls_true == cls_pred)
+
+    # Calculate the number of correctly classified images.
+    # When summing a boolean array, False means 0 and True means 1.
+    correct_sum = correct.sum()
+
+    # Classification accuracy is the number of correctly classified
+    # images divided by the total number of images in the test-set.
+    acc = float(correct_sum) / num_test
+
+    # Print the accuracy.
+    msg = "Accuracy on Test-Set: {0:.1%} ({1} / {2})"
+    print(msg.format(acc, correct_sum, num_test))
+
+    # Plot some examples of mis-classifications, if desired.
+    if show_example_errors:
+        print("Example errors:")
+        plot_example_errors(cls_pred=cls_pred, correct=correct)
+
+    # Plot the confusion matrix, if desired.
+    if show_confusion_matrix:
+        print("Confusion Matrix:")
+        plot_confusion_matrix(cls_pred=cls_pred)
+
+print_test_accuracy()
+#Accuracy on Test-Set: 10.6% (1059 / 10000)
+
+optimize(num_iterations=1)
+# Optimization Iteration:      1, Training Accuracy:  18.8%
+# Time usage: 0:00:04
+print_test_accuracy()
+#Accuracy on Test-Set: 12.4% (1238 / 10000)
+optimize(num_iterations=99)
+print_test_accuracy()
+# Accuracy on Test-Set: 68.8% (6879 / 10000)
+
+
+optimize(num_iterations=900)
+print_test_accuracy(show_example_errors=True,show_confusion_matrix=True)
+
 
